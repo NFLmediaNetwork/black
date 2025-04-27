@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Card Clash cu Dealer Custom</title>
+<style>
+  body { background: #222; color: #fff; text-align: center; font-family: Arial, sans-serif; overflow-x: hidden; }
+  #game { margin-top: 30px; }
+  #dealer { margin-bottom: 30px; }
+  #dealer img { width: 120px; height: 120px; border-radius: 50%; object-fit: cover; }
+  #player-hand, #dealer-hand { min-height: 100px; margin-top: 20px; }
+  .card {
+    display: inline-block;
+    width: 60px;
+    height: 90px;
+    background: #fff;
+    color: #000;
+    font-weight: bold;
+    line-height: 90px;
+    border-radius: 8px;
+    margin: 5px;
+    position: relative;
+    transform: translateY(-200px);
+    opacity: 0;
+    transition: transform 0.5s ease, opacity 0.5s ease;
+  }
+  .card.show {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  button { margin: 10px; padding: 10px 20px; font-size: 16px; background: #0f0; border: none; border-radius: 8px; cursor: pointer; }
+  button:hover { background: #0c0; }
+  #scoreboard {
+    position: absolute;
+    top: 10px;
+    right: 20px;
+    background: rgba(0, 0, 0, 0.6);
+    padding: 10px 20px;
+    border-radius: 10px;
+    font-size: 18px;
+  }
+  input {
+    padding: 10px;
+    margin: 5px;
+    border-radius: 8px;
+    border: none;
+    font-size: 16px;
+  }
+
+/* Reclame laterale */
+#left-ad, #right-ad {
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 120px;
+  height: 300px;
+  background: rgba(0,0,0,0.5);
+  color: white;
+  text-align: center;
+  line-height: 300px;
+  font-weight: bold;
+  border-radius: 10px;
+  z-index: 1000;
+}
+
+#left-ad {
+  left: 10px;
+}
+
+#right-ad {
+  right: 10px;
+}
+</style>
+
+</style>
+</head>
+<body>
+
+<div id="login-container">
+    <h1>Autentificare</h1>
+    <input type="text" id="username" placeholder="Nume utilizator">
+    <input type="password" id="password" placeholder="Parolă">
+    <br><br>
+    <button onclick="login()">Logare</button>
+    <button onclick="register()">Creare cont</button>
+    <button onclick="forgotPassword()">Am uitat parola</button>
+    <p id="login-message"></p>
+</div>
+
+<div id="main-game" style="display: none;">
+    <h1>Card Clash: Duel of Wits</h1>
+    <div id="scoreboard" style="display:none;">
+        🏆 Strike: <span id="strike">0</span>
+    </div>
+    <button onclick="logout()">Delogare</button>
+    <button onclick="resetGame()">Resetare Cărți</button>
+    <div id="dealer">
+        <img id="dealer-image" src="c:\aaa-work\concept joc\pisica.png" alt="Dealer">
+        <div id="dealer-hand"></div>
+        <p id="bot-score" style="margin-top:10px;">Scorul Botului: ???</p>
+    </div>
+    <div id="game">
+        <p>Scorul tău: <span id="player-score">0</span></p>
+        <div id="player-hand"></div>
+        <button onclick="drawCard()">Trage o carte</button>
+        <button onclick="stop()">Opresc aici</button>
+        <p id="message"></p>
+    </div>
+</div>
+
+<script>
+let playerScore = 0;
+let botScore = 0;
+let targetScore = 30;
+let gameOver = false;
+let strike = localStorage.getItem('strike') ? parseInt(localStorage.getItem('strike')) : 0;
+document.getElementById('strike').innerText = strike;
+
+// Joc - creare carte
+function createCard(value, target) {
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.innerText = value;
+  document.getElementById(target).appendChild(card);
+  setTimeout(() => {
+    card.classList.add('show');
+  }, 50);
+}
+
+// Trage o carte
+function drawCard() {
+  if (gameOver) return;
+  let cardValue = Math.floor(Math.random() * 11) + 1;
+  playerScore += cardValue;
+  document.getElementById('player-score').innerText = playerScore;
+  createCard(cardValue, 'player-hand');
+
+  if (playerScore > targetScore) {
+    endGame("Ai pierdut! Ai depășit scorul țintă.", false);
+  }
+}
+
+// Oprește extragerea
+function stop() {
+  if (gameOver) return;
+  botTurn();
+}
+
+// Tura Botului
+function botTurn() {
+  let botHand = document.getElementById('dealer-hand');
+  botHand.innerHTML = '';
+  botScore = 0;
+  document.getElementById('bot-score').innerText = "Scorul Botului: ???";
+  let draws = [];
+  while (botScore < 24) {
+    let cardValue = Math.floor(Math.random() * 11) + 1;
+    botScore += cardValue;
+    draws.push(cardValue);
+  }
+  let delay = 0;
+  draws.forEach((value, index) => {
+    setTimeout(() => {
+      createCard(value, 'dealer-hand');
+      if (index === draws.length - 1) {
+        setTimeout(() => {
+          document.getElementById('bot-score').innerText = "Scorul Botului: " + botScore;
+          decideWinner();
+        }, 500);
+      }
+    }, delay);
+    delay += 600;
+  });
+}
+
+// Decide câștigătorul
+function decideWinner() {
+  if (botScore > targetScore || playerScore > botScore) {
+    endGame("Felicitări! Ai câștigat!", true);
+  } else if (playerScore < botScore) {
+    endGame("Ai pierdut! Botul a avut un scor mai bun.", false);
+  } else {
+    endGame("Egalitate!", false);
+  }
+}
+
+// Update Strike
+function updateStrike(value) {
+  strike = value;
+  const currentUser = localStorage.getItem('currentUser');
+  if (currentUser) {
+    localStorage.setItem(`strike_${currentUser}`, strike);
+  }
+  document.getElementById('strike').innerText = strike;
+}
+
+// Termină jocul
+function endGame(msg, didWin) {
+  document.getElementById('message').innerText = msg;
+  if (didWin) {
+    updateStrike(strike + 1);
+  } else {
+    updateStrike(0);
+  }
+  gameOver = true;
+}
+
+// LOGIN + REGISTER + FORGOT PASSWORD
+function login() {
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value.trim();
+    const loginMessage = document.getElementById('login-message');
+
+    if (username === "" || password === "") {
+        loginMessage.innerText = "Introdu numele și parola!";
+        return;
+    }
+
+    let users = JSON.parse(localStorage.getItem('users')) || [];
+    const foundUser = users.find(user => user.username === username && user.password === password);
+
+    if (foundUser) {
+        localStorage.setItem('currentUser', username);
+        loginMessage.innerText = "Autentificat cu succes!";
+        startGame();
+    } else {
+        loginMessage.innerText = "Nume sau parolă greșită!";
+    }
+}
+
+function register() {
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value.trim();
+    const loginMessage = document.getElementById('login-message');
+
+    if (username === "" || password === "") {
+        loginMessage.innerText = "Completează toate câmpurile!";
+        return;
+    }
+
+    let users = JSON.parse(localStorage.getItem('users')) || [];
+    const userExists = users.some(user => user.username === username);
+
+    if (userExists) {
+        loginMessage.innerText = "Utilizatorul există deja!";
+    } else {
+        users.push({ username: username, password: password });
+        localStorage.setItem('users', JSON.stringify(users));
+        loginMessage.innerText = "Cont creat cu succes! Acum te poți loga.";
+    }
+}
+
+function forgotPassword() {
+    const username = document.getElementById('username').value.trim();
+    const loginMessage = document.getElementById('login-message');
+
+    if (username === "") {
+        loginMessage.innerText = "Introdu numele de utilizator!";
+        return;
+    }
+
+    let users = JSON.parse(localStorage.getItem('users')) || [];
+    const foundUser = users.find(user => user.username === username);
+
+    if (foundUser) {
+        alert(`Parola pentru utilizatorul '${username}' este: ${foundUser.password}`);
+    } else {
+        loginMessage.innerText = "Utilizatorul nu există!";
+    }
+}
+
+// Start Game
+function startGame() {
+    playerScore = 0;
+    botScore = 0;
+    gameOver = false;
+    document.getElementById('player-score').innerText = playerScore;
+    document.getElementById('bot-score').innerText = "Scorul Botului: ???";
+    document.getElementById('player-hand').innerHTML = "";
+    document.getElementById('dealer-hand').innerHTML = "";
+    document.getElementById('message').innerText = "";
+
+    document.getElementById('main-game').style.display = 'block';
+    document.getElementById('scoreboard').style.display = 'block';
+    document.getElementById('login-container').style.display = 'none';
+}
+
+// Logout
+function logout() {
+    localStorage.removeItem('currentUser');
+    document.getElementById('login-container').style.display = 'block';
+    document.getElementById('main-game').style.display = 'none';
+    document.getElementById('scoreboard').style.display = 'none';
+}
+
+// Reset Game
+function resetGame() {
+    playerScore = 0;
+    botScore = 0;
+    gameOver = false;
+    document.getElementById('player-score').innerText = playerScore;
+    document.getElementById('bot-score').innerText = "Scorul Botului: ???";
+    document.getElementById('player-hand').innerHTML = "";
+    document.getElementById('dealer-hand').innerHTML = "";
+    document.getElementById('message').innerText = "";
+}
+</script>
+
+</body>
+</html>
